@@ -1,0 +1,16 @@
+services:
+  token-net:
+    build: .
+    container_name: token-net
+    ports:
+      - "3099:3000"
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 2
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
