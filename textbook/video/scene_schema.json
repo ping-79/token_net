@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "建筑AIGC教程视频分镜Schema",
+  "description": "Gemini 2.5 Pro 按此 schema 结构化输出，下游 Playwright 自动化脚本按此 schema 解析",
+  "type": "object",
+  "required": ["episode", "title", "total_duration_sec", "characters", "scenes"],
+  "properties": {
+    "episode": {
+      "type": "string",
+      "description": "集数编号，如 E01",
+      "pattern": "^E[0-9]{2}$"
+    },
+    "title": {
+      "type": "string",
+      "description": "本集标题"
+    },
+    "total_duration_sec": {
+      "type": "integer",
+      "description": "总时长（秒），建议 300-600"
+    },
+    "characters": {
+      "type": "array",
+      "description": "本集出场角色列表",
+      "items": {
+        "type": "string",
+        "enum": ["雷公", "小雷", "小筑", "旁白"]
+      }
+    },
+    "knowledge_points": {
+      "type": "array",
+      "description": "本集必须覆盖的知识点",
+      "items": {"type": "string"}
+    },
+    "scenes": {
+      "type": "array",
+      "description": "分镜列表，每个 scene = 1个15秒视频单元",
+      "items": {
+        "type": "object",
+        "required": ["id", "start", "duration_sec", "type", "keyframes", "video_prompt", "jimeng_mode"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "分镜ID，格式 V-01 / V-31a",
+            "pattern": "^V-[0-9]{2}[a-z]?$"
+          },
+          "start": {
+            "type": "string",
+            "description": "起始时间 MM:SS",
+            "pattern": "^[0-9]{2}:[0-9]{2}$"
+          },
+          "duration_sec": {
+            "type": "integer",
+            "description": "时长（秒），通常为 15",
+            "default": 15
+          },
+          "type": {
+            "type": "string",
+            "enum": ["opening", "ending", "drama_shock", "drama_comedy", "drama_meet", "dialogue", "explain", "demo", "summary", "infographic", "ideology", "transition"],
+            "description": "分镜类型"
+          },
+          "narration": {
+            "type": ["string", "null"],
+            "description": "画外旁白，无则 null"
+          },
+          "dialogue": {
+            "type": "array",
+            "description": "角色对白，按顺序",
+            "items": {
+              "type": "object",
+              "required": ["speaker", "line"],
+              "properties": {
+                "speaker": {"type": "string", "enum": ["雷公", "小雷", "小筑", "旁白"]},
+                "line": {"type": "string"},
+                "emotion": {"type": "string", "description": "情绪标签，如 惊讶/感动/吐槽"}
+              }
+            }
+          },
+          "keyframes": {
+            "type": "array",
+            "description": "恰好 4 张关键帧",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "required": ["k", "time", "prompt"],
+              "properties": {
+                "k": {"type": "integer", "enum": [1, 2, 3, 4]},
+                "time": {"type": "string", "description": "相对时间 0s/5s/10s/15s"},
+                "prompt": {
+                  "type": "string",
+                  "description": "即梦文生图提示词（中文），必须已拼接角色锚定字符串和统一风格尾缀"
+                },
+                "negative_prompt": {
+                  "type": "string",
+                  "default": "写实人脸, 变形手指, 多余肢体, 低质, 模糊, 水印"
+                },
+                "aspect_ratio": {
+                  "type": "string",
+                  "enum": ["16:9", "9:16", "1:1"],
+                  "default": "16:9"
+                },
+                "character_ref": {
+                  "type": "array",
+                  "description": "本帧需引用的角色参考图文件名",
+                  "items": {"type": "string", "enum": ["ref_leigong.png", "ref_xiaolei.png", "ref_xiaozhu.png"]}
+                }
+              }
+            }
+          },
+          "video_prompt": {
+            "type": "string",
+            "description": "即梦视频生成提示词，描述 K1→K4 的动作/转场"
+          },
+          "jimeng_mode": {
+            "type": "string",
+            "enum": ["first_last_frame", "image_to_video", "digital_human", "text_to_image_only"],
+            "description": "即梦使用模式：首尾帧/图生视频/数字人/仅出图"
+          },
+          "audio": {
+            "type": "object",
+            "properties": {
+              "tts_enabled": {"type": "boolean"},
+              "voice": {
+                "type": "string",
+                "enum": ["老年男声_文言腔", "青年男声_真人", "女声_学生", "庄重男声_旁白", "none"]
+              },
+              "bgm": {"type": "string", "description": "BGM 风格描述"},
+              "sfx": {"type": "array", "items": {"type": "string"}, "description": "音效列表"}
+            }
+          },
+          "on_screen_text": {
+            "type": "string",
+            "description": "画面上叠加的文字/字幕/标题卡"
+          }
+        }
+      }
+    },
+    "golden_quotes": {
+      "type": "array",
+      "description": "本集金句（供小程序与二次传播）",
+      "items": {"type": "string"}
+    }
+  }
+}

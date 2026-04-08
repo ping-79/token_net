@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>雷公穿越记 · 关键帧挑图画廊</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", sans-serif; background:#1a1d24; color:#e8e4e0; margin:0; padding:20px; }
+  h1 { color:#E8913A; border-bottom: 2px solid #2E5C8A; padding-bottom:8px; }
+  .controls { position:sticky; top:0; background:#1a1d24; padding:12px 0; z-index:10; border-bottom:1px solid #333; }
+  .controls button { background:#2E5C8A; color:#fff; border:0; padding:8px 16px; margin-right:8px; border-radius:4px; cursor:pointer; }
+  .controls button:hover { background:#3a70a8; }
+  .scene { margin:24px 0; padding:16px; background:#23262e; border-radius:8px; }
+  .scene-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .scene-id { font-size:18px; color:#E8913A; font-weight:bold; }
+  .scene-type { font-size:12px; color:#888; }
+  .dialogue { font-size:13px; color:#aaa; margin-bottom:10px; padding:8px; background:#191b20; border-left:3px solid #2E5C8A; }
+  .keyframes { display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; }
+  .kf { position:relative; border:3px solid #333; border-radius:6px; overflow:hidden; cursor:pointer; transition:all .2s; }
+  .kf.selected { border-color:#E8913A; box-shadow:0 0 12px rgba(232,145,58,0.6); }
+  .kf.missing { background:#2a1a1a; border-color:#a33; aspect-ratio:16/9; display:flex; align-items:center; justify-content:center; color:#a33; font-size:12px; }
+  .kf img { width:100%; display:block; }
+  .kf-label { position:absolute; top:4px; left:4px; background:rgba(0,0,0,0.7); color:#fff; padding:2px 6px; border-radius:3px; font-size:11px; }
+  .kf-prompt { font-size:11px; color:#666; padding:6px; max-height:60px; overflow:hidden; }
+  .summary { position:fixed; bottom:20px; right:20px; background:#E8913A; color:#1a1d24; padding:12px 20px; border-radius:8px; font-weight:bold; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+<h1>雷公穿越记 · 关键帧挑图画廊</h1>
+
+<div class="controls">
+  <input type="file" id="jsonInput" accept=".json" style="display:none">
+  <button onclick="document.getElementById('jsonInput').click()">📂 加载分镜 JSON</button>
+  <button onclick="exportSelected()">💾 导出挑选清单</button>
+  <button onclick="markAllK1K4()">⚡ 一键全选 K1+K4（首尾帧必需）</button>
+  <span id="kfDir" style="margin-left:16px;color:#888;font-size:13px;"></span>
+</div>
+
+<div id="scenes"></div>
+<div class="summary" id="summary">已选 0 张</div>
+
+<script>
+let sceneData = null;
+let kfBaseDir = "";  // 相对路径，例如 "../generated/E02_keyframes"
+const selected = new Set();
+
+document.getElementById('jsonInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  sceneData = JSON.parse(text);
+  // 默认关键帧目录同名，需要用户自己把本文件放到正确位置
+  kfBaseDir = `../generated/${sceneData.episode}_keyframes`;
+  document.getElementById('kfDir').textContent = `关键帧目录：${kfBaseDir}`;
+  render();
+});
+
+function render() {
+  const container = document.getElementById('scenes');
+  container.innerHTML = '';
+  sceneData.scenes.forEach(scene => {
+    const div = document.createElement('div');
+    div.className = 'scene';
+    const dlg = (scene.dialogue || []).map(d => `<b>${d.speaker}</b>：${d.line}`).join('<br>');
+    div.innerHTML = `
+      <div class="scene-header">
+        <span class="scene-id">${scene.id} · ${scene.start}</span>
+        <span class="scene-type">${scene.type} · ${scene.jimeng_mode}</span>
+      </div>
+      ${dlg ? `<div class="dialogue">${dlg}</div>` : ''}
+      <div class="keyframes">
+        ${scene.keyframes.map(kf => renderKf(scene.id, kf)).join('')}
+      </div>
+    `;
+    container.appendChild(div);
+  });
+  // 图片加载失败 → missing 占位
+  document.querySelectorAll('.kf img').forEach(img => {
+    img.addEventListener('error', () => {
+      const kf = img.closest('.kf');
+      kf.classList.add('missing');
+      kf.innerHTML = `<div>⚠ ${img.dataset.file} 未生成</div>`;
+    });
+  });
+}
+
+function renderKf(sceneId, kf) {
+  const file = `${sceneId}_K${kf.k}.png`;
+  const id = `${sceneId}_K${kf.k}`;
+  const isSel = selected.has(id) ? 'selected' : '';
+  return `
+    <div class="kf ${isSel}" data-id="${id}" onclick="toggle('${id}')">
+      <img src="${kfBaseDir}/${file}" data-file="${file}">
+      <div class="kf-label">K${kf.k} · ${kf.time}</div>
+      <div class="kf-prompt">${(kf.prompt || '').slice(0, 100)}...</div>
+    </div>
+  `;
+}
+
+function toggle(id) {
+  if (selected.has(id)) selected.delete(id);
+  else selected.add(id);
+  document.querySelector(`.kf[data-id="${id}"]`).classList.toggle('selected');
+  updateSummary();
+}
+
+function markAllK1K4() {
+  if (!sceneData) return;
+  sceneData.scenes.forEach(s => {
+    if (s.jimeng_mode === 'first_last_frame') {
+      selected.add(`${s.id}_K1`);
+      selected.add(`${s.id}_K4`);
+    }
+  });
+  render();
+  updateSummary();
+}
+
+function updateSummary() {
+  document.getElementById('summary').textContent = `已选 ${selected.size} 张`;
+}
+
+function exportSelected() {
+  if (!sceneData) return alert('先加载 JSON');
+  const manifest = {
+    episode: sceneData.episode,
+    selected: Array.from(selected).sort(),
+    generated_at: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(manifest, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${sceneData.episode}_selected.json`;
+  a.click();
+}
+</script>
+</body>
+</html>
